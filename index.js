@@ -8,32 +8,66 @@ const manifest = {
     types: ['series', 'movie'],
     catalogs: [],
     resources: ['stream'],
-    // This strict prefix forces Stremio to only route Kitsu metadata to this add-on
     idPrefixes: ['kitsu:'] 
 };
 
 const builder = new addonBuilder(manifest);
 
 builder.defineStreamHandler(async ({ type, id }) => {
-    // Stremio Kitsu format: kitsu:{anime_id}:{episode} (e.g., kitsu:11:1)
     if (!id.startsWith('kitsu:')) {
         return { streams: [] };
     }
 
     const parts = id.split(':');
     const kitsuId = parts[1];
-    const episode = parts[2] || 1; // Default to 1 for movies
+    const episode = parts[2] || 1;
 
     try {
-        /*
-          =========================================
-          API SCRAPING LOGIC
-          =========================================
-          Replace this dummy array with an Axios call to your anime API 
-          (e.g., Consumet pulling from Gogoanime).
-          Ensure your source site provides Hardsubs (video files with burned-in text).
-        */
         const rawStreams = await fetchFromYourAnimeAPI(kitsuId, episode);
+
+        const validStreams = rawStreams.filter(stream => {
+            if (stream.audio === 'sub' && stream.isSoftSub === true) return false;
+            return true;
+        });
+
+        validStreams.sort((a, b) => {
+            if (a.audio !== b.audio) {
+                return a.audio === 'sub' ? -1 : 1; 
+            }
+            const resA = parseInt(a.quality) || 0;
+            const resB = parseInt(b.quality) || 0;
+            return resB - resA; 
+        });
+
+        const stremioStreams = validStreams.map(stream => ({
+            name: `[Hardsub] Anime`,
+            description: `${stream.quality} - ${stream.audio.toUpperCase()}\n${stream.isDub ? 'Dubbed' : 'Hardcoded Sub'}`,
+            url: stream.url
+        }));
+
+        return { streams: stremioStreams };
+
+    } catch (error) {
+        console.error("Stream Fetch Error:", error);
+        return { streams: [] };
+    }
+});
+
+async function fetchFromYourAnimeAPI(kitsuId, episode) {
+    return [
+        { url: "https://example.com/stream-720p.m3u8", quality: "720p", audio: "sub", isSoftSub: false },
+        { url: "https://example.com/stream-1080p.m3u8", quality: "1080p", audio: "sub", isSoftSub: false },
+        { url: "https://example.com/stream-1080p-dub.m3u8", quality: "1080p", audio: "dub", isSoftSub: false }
+    ];
+}
+
+// Fixed SDK Server Interface binding
+const addonInterface = builder.getInterface();
+const port = process.env.PORT || 7000;
+
+serveHTTP(addonInterface, { port: port }).then(({ url }) => {
+    console.log(`Addon active on ${url}`);
+});
 
         // 1. STRICT FILTER: Drop all soft sub streams
         const validStreams = rawStreams.filter(stream => {
