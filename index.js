@@ -1,5 +1,8 @@
 const express = require('express');
-const { addonBuilder, getRouter } = require('stremio-addon-sdk');
+const cors = require('cors');
+
+const app = express();
+app.use(cors());
 
 const manifest = {
     id: 'com.anime.hardsub',
@@ -12,11 +15,15 @@ const manifest = {
     idPrefixes: ['kitsu:']
 };
 
-const builder = new addonBuilder(manifest);
+app.get('/manifest.json', (req, res) => {
+    res.json(manifest);
+});
 
-builder.defineStreamHandler(async ({ type, id }) => {
+app.get('/stream/:type/:id.json', async (req, res) => {
+    const { id } = req.params;
+    
     if (!id.startsWith('kitsu:')) {
-        return { streams: [] };
+        return res.json({ streams: [] });
     }
 
     const parts = id.split(':');
@@ -24,16 +31,39 @@ builder.defineStreamHandler(async ({ type, id }) => {
     const episode = parts[2] || 1;
 
     try {
-        const rawStreams = await fetchFromYourAnimeAPI(kitsuId, episode);
+        const rawStreams = [
+            { url: "https://example.com/stream-720p.m3u8", quality: "720p", audio: "sub", isSoftSub: false },
+            { url: "https://example.com/stream-1080p.m3u8", quality: "1080p", audio: "sub", isSoftSub: false },
+            { url: "https://example.com/stream-1080p-dub.m3u8", quality: "1080p", audio: "dub", isSoftSub: false }
+        ];
 
-        const validStreams = rawStreams.filter(stream => {
-            if (stream.audio === 'sub' && stream.isSoftSub === true) return false;
-            return true;
-        });
+        const validStreams = rawStreams.filter(stream => !(stream.audio === 'sub' && stream.isSoftSub === true));
 
         validStreams.sort((a, b) => {
             if (a.audio !== b.audio) {
                 return a.audio === 'sub' ? -1 : 1;
+            }
+            const resA = parseInt(a.quality) || 0;
+            const resB = parseInt(b.quality) || 0;
+            return resB - resA;
+        });
+
+        const stremioStreams = validStreams.map(stream => ({
+            name: `[Hardsub] Anime`,
+            description: `${stream.quality} - ${stream.audio.toUpperCase()}\n${stream.isDub ? 'Dubbed' : 'Hardcoded Sub'}`,
+            url: stream.url
+        }));
+
+        res.json({ streams: stremioStreams });
+    } catch (error) {
+        res.json({ streams: [] });
+    }
+});
+
+const PORT = process.env.PORT || 7000;
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
+});
             }
             const resA = parseInt(a.quality) || 0;
             const resB = parseInt(b.quality) || 0;
