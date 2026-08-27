@@ -1,8 +1,5 @@
 const express = require('express');
-const cors = require('cors');
-
-const app = express();
-app.use(cors());
+const { addonBuilder, getRouter } = require('stremio-addon-sdk');
 
 const manifest = {
     id: 'com.anime.hardsub',
@@ -15,15 +12,11 @@ const manifest = {
     idPrefixes: ['kitsu:']
 };
 
-app.get('/manifest.json', (req, res) => {
-    res.json(manifest);
-});
+const builder = new addonBuilder(manifest);
 
-app.get('/stream/:type/:id.json', async (req, res) => {
-    const { id } = req.params;
-    
+builder.defineStreamHandler(async ({ type, id }) => {
     if (!id.startsWith('kitsu:')) {
-        return res.json({ streams: [] });
+        return { streams: [] };
     }
 
     const parts = id.split(':');
@@ -34,6 +27,43 @@ app.get('/stream/:type/:id.json', async (req, res) => {
         const rawStreams = [
             { url: "https://example.com/stream-720p.m3u8", quality: "720p", audio: "sub", isSoftSub: false },
             { url: "https://example.com/stream-1080p.m3u8", quality: "1080p", audio: "sub", isSoftSub: false },
+            { url: "https://example.com/stream-1080p-dub.m3u8", quality: "1080p", audio: "dub", isSoftSub: false }
+        ];
+
+        const validStreams = rawStreams.filter(stream => !(stream.audio === 'sub' && stream.isSoftSub === true));
+
+        validStreams.sort((a, b) => {
+            if (a.audio !== b.audio) {
+                return a.audio === 'sub' ? -1 : 1;
+            }
+            const resA = parseInt(a.quality) || 0;
+            const resB = parseInt(b.quality) || 0;
+            return resB - resA;
+        });
+
+        const stremioStreams = validStreams.map(stream => ({
+            name: `[Hardsub] Anime`,
+            description: `${stream.quality} - ${stream.audio.toUpperCase()}\n${stream.audio === 'dub' ? 'Dubbed' : 'Hardcoded Sub'}`,
+            url: stream.url
+        }));
+
+        return { streams: stremioStreams };
+    } catch (error) {
+        console.error("Stream error:", error);
+        return { streams: [] };
+    }
+});
+
+const app = express();
+const addonInterface = builder.getInterface();
+const router = getRouter(addonInterface);
+
+app.use('/', router);
+
+const PORT = process.env.PORT || 7000;
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Addon listening on port ${PORT}`);
+});
             { url: "https://example.com/stream-1080p-dub.m3u8", quality: "1080p", audio: "dub", isSoftSub: false }
         ];
 
