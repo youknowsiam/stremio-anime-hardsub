@@ -1,4 +1,5 @@
-const { addonBuilder, serveHTTP } = require('stremio-addon-sdk');
+const express = require('express');
+const { addonBuilder, getRouter } = require('stremio-addon-sdk');
 
 const manifest = {
     id: 'com.anime.hardsub',
@@ -8,7 +9,7 @@ const manifest = {
     types: ['series', 'movie'],
     catalogs: [],
     resources: ['stream'],
-    idPrefixes: ['kitsu:'] 
+    idPrefixes: ['kitsu:']
 };
 
 const builder = new addonBuilder(manifest);
@@ -32,8 +33,45 @@ builder.defineStreamHandler(async ({ type, id }) => {
 
         validStreams.sort((a, b) => {
             if (a.audio !== b.audio) {
-                return a.audio === 'sub' ? -1 : 1; 
+                return a.audio === 'sub' ? -1 : 1;
             }
+            const resA = parseInt(a.quality) || 0;
+            const resB = parseInt(b.quality) || 0;
+            return resB - resA;
+        });
+
+        const stremioStreams = validStreams.map(stream => ({
+            name: `[Hardsub] Anime`,
+            description: `${stream.quality} - ${stream.audio.toUpperCase()}\n${stream.isDub ? 'Dubbed' : 'Hardcoded Sub'}`,
+            url: stream.url
+        }));
+
+        return { streams: stremioStreams };
+
+    } catch (error) {
+        console.error("Stream Fetch Error:", error);
+        return { streams: [] };
+    }
+});
+
+async function fetchFromYourAnimeAPI(kitsuId, episode) {
+    return [
+        { url: "https://example.com/stream-720p.m3u8", quality: "720p", audio: "sub", isSoftSub: false },
+        { url: "https://example.com/stream-1080p.m3u8", quality: "1080p", audio: "sub", isSoftSub: false },
+        { url: "https://example.com/stream-1080p-dub.m3u8", quality: "1080p", audio: "dub", isSoftSub: false }
+    ];
+}
+
+const app = express();
+const addonInterface = builder.getInterface();
+const router = getRouter(addonInterface);
+
+app.use('/', router);
+
+const PORT = process.env.PORT || 7000;
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
+});
             const resA = parseInt(a.quality) || 0;
             const resB = parseInt(b.quality) || 0;
             return resB - resA; 
