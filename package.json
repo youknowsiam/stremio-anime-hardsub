@@ -1,0 +1,13 @@
+{
+  "name": "stremio-anime-hardsub",
+  "version": "1.0.0",
+  "description": "Anime Hardsub Streams for Stremio",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "stremio-addon-sdk": "^1.1.3",
+    "axios": "^1.6.0"
+  }
+}
