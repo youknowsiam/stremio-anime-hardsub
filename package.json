@@ -1,13 +1,12 @@
 {
-  "name": "stremio-anime-hardsub",
-  "version": "1.0.0",
-  "description": "Anime Hardsub Priority Addon",
+  "name": "anime-stremio-addon",
+  "version": "2.0.0",
+  "description": "Kitsu-id anime stream addon for Stremio/Nuvio - Allanime via anime-sdk, sub priority, dub fallback, highest quality first",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "stremio-addon-sdk": "^1.6.0"
+    "anime-sdk": "^1.0.0"
   }
 }
